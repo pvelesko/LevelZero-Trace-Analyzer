@@ -1,0 +1,12 @@
+08:18:04.01 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventA }
+08:18:04.02 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventB }
+08:18:04.03 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventC }
+08:18:04.04 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventD }
+08:18:04.05 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeCommandListAppendMemoryCopy_entry: { hCommandList: 0x0000556c1d005780, dstptr: 0xffffeaab54c00000, srcptr: 0x00007f00583fb010, size: 4194304, hSignalEvent: EventA, numWaitEvents: 0, phWaitEvents: 0x0000000000000000, phWaitEvents_vals: [  ] }
+08:18:04.06 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeCommandListAppendMemoryCopy_entry: { hCommandList: 0x0000556c1d005780, dstptr: 0xffffeaab54c00000, srcptr: 0x00007f00583fb010, size: 4194304, hSignalEvent: EventB, numWaitEvents: 0, phWaitEvents: 0x0000000000000000, phWaitEvents_vals: [ EventA ] }
+08:18:04.06 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeCommandListAppendMemoryCopy_entry: { hCommandList: 0x0000556c1d005780, dstptr: 0xffffeaab54c00000, srcptr: 0x00007f00583fb010, size: 4194304, hSignalEvent: EventC numWaitEvents: 0, phWaitEvents: 0x0000000000000000, phWaitEvents_vals: [ EventA ] }
+08:18:04.08 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeCommandListAppendMemoryCopy_entry: { hCommandList: 0x0000556c1d005780, dstptr: 0xffffeaab54c00000, srcptr: 0x00007f00583fb010, size: 4194304, hSignalEvent: EventD numWaitEvents: 0, phWaitEvents: 0x0000000000000000, phWaitEvents_vals: [ EventC, EventB ] }
+08:18:04.09 - cupcake - vpid: 267004, vtid: 000000 - lttng_ust_hip:hipMalloc_entry: { ptr: 0x00007ffd552ca970, size: 4194304 }
+08:18:04.10 - cupcake - vpid: 267004, vtid: 000000 - lttng_ust_ze:zeEventHostReset_entry: { hEvent: EventB }
+08:18:04.11 - cupcake - vpid: 267004, vtid: 000000 - lttng_ust_hip:hipMalloc_exit: { hipResult: hipSuccess, ptr_val: 0xffffeaab54800000 }
+08:18:04.12 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventHostSynchronize_entry: { hEvent: EventD, timeout: 18446744073709551615 }
