@@ -92,6 +92,40 @@ def generate_node_map(lines: list[str]) -> dict[str, list[EventNode]]:
             node_map[node.ptr].append(node) 
     return node_map
 
+def traverse_event_nodes(event_nodes):
+    output = []
+    for node in event_nodes:
+        if node.command != Command.SIGNAL:
+            output.append(node)
+        else:
+            for dependency in node.dependsOn:
+                if dependency != "":
+                    dep = NodeMap[dependency]
+                    output.extend(traverse_event_nodes(dep))
+            output.append(node)
+    return output
+
+def traverse_event_nodes_non_recursive(event_nodes):
+    output = []
+    stack = list(event_nodes)  # Use a list as a stack for nodes to be processed
+
+    while stack:
+        node = stack.pop()  # Get the last node from the stack
+        if node.command != Command.SIGNAL:
+            output.append(node)
+        else:
+            # Temporarily store nodes to keep the original order after SIGNAL nodes
+            temp_nodes = []
+            for dependency in reversed(node.dependsOn):  # Reverse to maintain order when adding to stack
+                if dependency != "":
+                    dep = NodeMap[dependency]
+                    # Instead of recursive call, add dependency nodes to the stack
+                    stack.extend(dep)
+            # Add the current SIGNAL node after processing its dependencies
+            temp_nodes.append(node)
+            # Extend the output with processed nodes in the correct order
+            output.extend(reversed(temp_nodes))
+    return output
 
 if __name__ == "__main__":
     # # two arguments: ptr, and path to trace file
@@ -111,13 +145,16 @@ if __name__ == "__main__":
     NodeB = NodeMap["EventB"]
     NodeC = NodeMap["EventC"]
 
-    for node in NodeA:
-        print(f"NodeA: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
-
-    for node in NodeB:
-        print(f"NodeB: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
-
-    for node in NodeC:
+    test = traverse_event_nodes_non_recursive(NodeC)
+    test.reverse()
+    # sort test by timestamp
+    test.sort(key=lambda x: x.timestamp)
+    for node in test:
         print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
-        
+
+    print("\n\n")
+    test = traverse_event_nodes(NodeC)
+    test.sort(key=lambda x: x.timestamp)
+    for node in test:
+        print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
     pass
