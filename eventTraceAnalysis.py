@@ -91,19 +91,6 @@ def generate_node_map(lines: list[str]) -> dict[str, list[EventNode]]:
             node_map[node.ptr].append(node) 
     return node_map
 
-def traverse_event_nodes(event_nodes):
-    output = []
-    for node in event_nodes:
-        if node.command != Command.SIGNAL:
-            output.append(node)
-        else:
-            for dependency in node.dependsOn:
-                if dependency != "":
-                    dep = NodeMap[dependency]
-                    output.extend(traverse_event_nodes(dep))
-            output.append(node)
-    return output
-
 class CircularDependencyError(Exception):
     def __init__(self, message="Circular dependency detected"):
         super().__init__(message)
@@ -117,7 +104,7 @@ def traverse_event_nodes_non_recursive(event_nodes):
         node = stack.pop()  # Get the last node from the stack
         if node in visited:
             # Detected a cycle, raise an exception
-            raise CircularDependencyError(f"Circular dependency detected at node with ptr {node.ptr}")
+            raise CircularDependencyError(f"Circular dependuency detected at node with ptr {node.ptr}")
         visited.add(node)  # Mark node as visited
 
         if node.command != Command.SIGNAL:
@@ -143,7 +130,7 @@ def traverse_event_nodes_non_recursive(event_nodes):
 
 def event_reset_after_signal(ptr) -> bool:
     NodePtr = NodeMap[ptr]
-    event_nodes = traverse_event_nodes(NodePtr)
+    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
     # sort by timestamp
     event_nodes.sort(key=lambda x: float(x.timestamp))
     # if there is a reset between the first occurence of signal and the first occurernce of wait, return True
@@ -170,32 +157,39 @@ def event_reset_after_signal(ptr) -> bool:
 
 def circular_dependency(ptr) -> bool:
     NodePtr = NodeMap[ptr]
-    event_nodes = traverse_event_nodes(NodePtr)
+    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
     # sort by timestamp
     event_nodes.sort(key=lambda x: float(x.timestamp))
 
+def never_signalled(ptr) -> bool:
+    NodePtr = NodeMap[ptr]
+    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
+    # sort by timestamp
+    event_nodes.sort(key=lambda x: float(x.timestamp))
+    # extract all unique ptr from the event_nodes
+    unique_ptrs = set()
+    for node in event_nodes:
+        unique_ptrs.add(node.ptr)
+    
+    # for every unique ptr, check if it is signalled
+    for ptr in unique_ptrs:
+        if not any(node.command == Command.SIGNAL for node in NodeMap[ptr]):
+            return True
+    return True
 
 if __name__ == "__main__":
-    # # two arguments: ptr, and path to trace file
-    # import sys
-    # if len(sys.argv) != 3:
-    #     print("Usage: python3 eventTraceAnalysis.py <ptr> <trace_file>")
-    #     sys.exit(1)
-    # ptr = sys.argv[1]
-    # trace_file = sys.argv[2]
-    # # read file
-    trace_file = "/Users/pvelesko/local/LevelZero-Trace-Analyzer/circularDep.trace"
+    # two arguments: ptr, and path to trace file
+    import sys
+    if len(sys.argv) != 3:
+        print("Usage: python3 eventTraceAnalysis.py <ptr> <trace_file>")
+        sys.exit(1)
+    ptr = sys.argv[1]
+    trace_file = sys.argv[2]
+    # read file
     with open(trace_file, 'r') as f:
         lines = f.readlines()
     
     NodeMap = generate_node_map(lines)
-    test = traverse_event_nodes_non_recursive(NodeMap["EventD"])
-    test.reverse()
-
-    # # sort by timestamp
-    # test.sort(key=lambda x: float(x.timestamp))
-    # for node in test:
-    #     print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
-
-    # reset_check = event_reset_after_signal("EventC")
+    reset_check = event_reset_after_signal("EventD")
+    never_sigal = never_signalled("EventD")
     pass
