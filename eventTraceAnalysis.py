@@ -61,6 +61,11 @@ class EventNode:
             assert(ptr[-1] == ',')
             ptr = ptr[:-1]
             return ptr, Command.SIGNAL
+        elif "zeEventHostSynchronize_entry" in line:
+            ptr = line.split("hEvent: ")[1].split(' ')[0]
+            assert(ptr[-1] == ',')
+            ptr = ptr[:-1]
+            return ptr, Command.WAIT
         else:
             return None, None
         
@@ -111,7 +116,7 @@ def traverse_event_nodes_non_recursive(event_nodes):
 
     while stack:
         node = stack.pop()  # Get the last node from the stack
-        if node.command != Command.SIGNAL:
+        if node.command != Command.SIGNAL and node not in output:
             output.append(node)
         else:
             # Temporarily store nodes to keep the original order after SIGNAL nodes
@@ -122,10 +127,49 @@ def traverse_event_nodes_non_recursive(event_nodes):
                     # Instead of recursive call, add dependency nodes to the stack
                     stack.extend(dep)
             # Add the current SIGNAL node after processing its dependencies
-            temp_nodes.append(node)
+            if node not in output:
+                temp_nodes.append(node)
             # Extend the output with processed nodes in the correct order
             output.extend(reversed(temp_nodes))
     return output
+
+def event_reset_after_signal(ptr) -> bool:
+    NodePtr = NodeMap[ptr]
+    event_nodes = traverse_event_nodes(NodePtr)
+    # sort by timestamp
+    event_nodes.sort(key=lambda x: float(x.timestamp))
+    # if there is a reset between the first occurence of signal and the first occurernce of wait, return True
+    # 1. find the first occurence of singnal
+    # 2. find the first occurence of wait
+    # 3. check if a reset occurs between the two
+    signal = None
+    wait = None
+    for i, node in enumerate(event_nodes):
+        if node.command == Command.SIGNAL:
+            signal = i
+            break
+    for i, node in enumerate(event_nodes):
+        if node.command == Command.WAIT:
+            wait = i
+            break
+
+    if signal is None or wait is None:
+        return False
+    for i in range(signal, wait):
+        if event_nodes[i].command == Command.RESET:
+            return True
+    return False
+
+def event_never_signaled(ptr) -> bool:
+    NodePtr = NodeMap[ptr]
+    event_nodes = traverse_event_nodes(NodePtr)
+    # 1. Find the node where ptr is signalled (if it is)
+    # 2. If it is not signalled, return True
+    # 3. Make sure all other events are signalled
+    # 4. If they are, return False
+    # 5. If they are not, return True
+
+
 
 if __name__ == "__main__":
     # # two arguments: ptr, and path to trace file
@@ -141,20 +185,18 @@ if __name__ == "__main__":
         lines = f.readlines()
     
     NodeMap = generate_node_map(lines)
-    NodeA = NodeMap["EventA"]
-    NodeB = NodeMap["EventB"]
-    NodeC = NodeMap["EventC"]
+    # print the NodeMap for EventD
+    for node in NodeMap["EventC"]:
+        print(f"NodeD: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
 
-    test = traverse_event_nodes_non_recursive(NodeC)
+
+    test = traverse_event_nodes_non_recursive(NodeMap["EventC"])
     test.reverse()
-    # sort test by timestamp
-    test.sort(key=lambda x: x.timestamp)
+
+    # sort by timestamp
+    test.sort(key=lambda x: float(x.timestamp))
     for node in test:
         print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
 
-    print("\n\n")
-    test = traverse_event_nodes(NodeC)
-    test.sort(key=lambda x: x.timestamp)
-    for node in test:
-        print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
+    reset_check = event_reset_after_signal("EventC")
     pass
