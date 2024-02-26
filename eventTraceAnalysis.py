@@ -1,31 +1,35 @@
 #!/usr/bin/env python3
+import re
+from typing import List
+from enum import Enum
 
-# enum type for command which can be either create, reset, query
-class Command:
+class Command(Enum):
     CREATE = 1
     RESET = 2
     QUERY = 3
-    WAIT =4
+    WAIT = 4
     SIGNAL = 5
     DESTROY = 6
 
+    def __repr__(self):
+        return self.name
 
 class EventNode:
     def __init__(self, line: str, line_idx: int):
-        ptr, command = self.parseCommand(line)
-        self.ptr = ptr
+        self.ptr, self.command = self.parseCommand(line)
         self.next = None
         self.idx = line_idx
         self.line = line
         self.timestamp = self.parseTimestamp(line)  
         self.threadId = self.parseThreadId(line)
-        self.command = command
         self.dependsOn = self.parseDependsOn(line)
     
     # given a timestamp like 08:18:04.649921690, parse it into an float seconds.milliseconds
     def parseTimestamp(self, t_string):
         t_string = t_string.split(' ')[0]
         t = t_string.split(':')
+        if len(t) != 3:
+            return None
         seconds = float(t[0]) * 3600 + float(t[1]) * 60 + float(t[2])
         return seconds
     
@@ -51,9 +55,14 @@ class EventNode:
         elif "zeEventQueryStatus_entry" in line:
             ptr = line.split("hEvent: ")[1].split(' ')[0]
             return ptr, Command.QUERY 
-        elif "zeEventHostSignal_entry" in line:
-            ptr = line.split("hEvent: ")[1].split(' ')[0]
+        elif "hSignalEvent" in line:
+            ptr = line.split("hSignalEvent: ")[1].split(' ')[0]
+            # make sure the last char is , and drop it
+            assert(ptr[-1] == ',')
+            ptr = ptr[:-1]
             return ptr, Command.SIGNAL
+        else:
+            return None, None
         
     def parseDependsOn(self, line) -> list[str]:
         # extract individual ptrs form phWaitEvents_vals: [ 0x0000556c1d048370, 0x0000556c1d048371, 0x0000556c1d048372 ]
@@ -66,35 +75,49 @@ class EventNode:
             return [ptr for ptr in line.split('[ ')[1].split(' ]')[0].split(', ')]
 
     def parseThreadId(self, line) -> str:
-        return line.split(' ')[7].split(',')[1]
-    
-class NodeProcessor:
-    def __init__(self, ptr, lines):
-        self.ptr = ptr
-        self.lines = lines
-        self.head = None
-        self.tail = None
-        self.generateHeadNode()
-    
-    def generateHeadNode(self):
-        # go through lines generating nodes until a node with command.CREATE is found
-        for i, line in enumerate(self.lines):
-            if "zeEventCreate_exit" in line and self.ptr in line:
-                self.head = EventNode(line, i)
-                self.tail = self.head
-                break
+        matches = re.findall(r'vtid: \d+', line)
+        if len(matches) == 0:
+            return None
+        return matches[0].split(' ')[1]
 
-# main
+def generate_node_map(lines: list[str]) -> dict[str, list[EventNode]]:
+    node_map = {}
+    for i, line in enumerate(lines):
+        node = EventNode(line, i)
+        if node.ptr is None:
+            continue
+        if node.ptr not in node_map:
+            node_map[node.ptr] = [node]
+        else:
+            node_map[node.ptr].append(node) 
+    return node_map
+
+
 if __name__ == "__main__":
-    # two arguments: ptr, and path to trace file
-    import sys
-    if len(sys.argv) != 3:
-        print("Usage: python3 eventTraceAnalysis.py <ptr> <trace_file>")
-        sys.exit(1)
-    ptr = sys.argv[1]
-    trace_file = sys.argv[2]
-    # read file
+    # # two arguments: ptr, and path to trace file
+    # import sys
+    # if len(sys.argv) != 3:
+    #     print("Usage: python3 eventTraceAnalysis.py <ptr> <trace_file>")
+    #     sys.exit(1)
+    # ptr = sys.argv[1]
+    # trace_file = sys.argv[2]
+    # # read file
+    trace_file = "/Users/pvelesko/local/LevelZero-Trace-Analyzer/simple.trace"
     with open(trace_file, 'r') as f:
         lines = f.readlines()
     
-    processor = NodeProcessor(ptr, lines)
+    NodeMap = generate_node_map(lines)
+    NodeA = NodeMap["EventA"]
+    NodeB = NodeMap["EventB"]
+    NodeC = NodeMap["EventC"]
+
+    for node in NodeA:
+        print(f"NodeA: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
+
+    for node in NodeB:
+        print(f"NodeB: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
+
+    for node in NodeC:
+        print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
+        
+    pass

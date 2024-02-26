@@ -55,5 +55,8 @@ class TestEventTraceAnalysis(unittest.TestCase):
         result = self.node.parseThreadId("08:18:04.649921690 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventCreate_exit: { zeResult: ZE_RESULT_SUCCESS, phEvent_val: 0x0000556c1d012d80 }")
         self.assertEqual(result, "267004")
 
+    def test_generate_node_map(self):
+        pass
+
 if __name__ == '__main__':
     unittest.main()
