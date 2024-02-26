@@ -32,13 +32,7 @@ class EventNode:
             return None
         seconds = float(t[0]) * 3600 + float(t[1]) * 60 + float(t[2])
         return seconds
-    
-    # 08:18:04.810841256 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventCreate_exit: { zeResult: ZE_RESULT_SUCCESS, phEvent_val: 0x0000556c1d012d80 }
-    # 08:18:04.810847676 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventHostReset_entry: { hEvent: 0x0000556c1d012d80 } 
-    # 08:18:04.894961780 - cupcake - vpid: 267004, vtid: 267016 - lttng_ust_ze:zeEventDestroy_entry: { hEvent: 0x0000556c1d048a90 }
-    # 08:18:04.810847676 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventHostReset_entry: { hEvent: 0x0000556c1d012d80 }
-    # 08:18:04.813072854 - cupcake - vpid: 267004, vtid: 267016 - lttng_ust_ze:zeEventQueryStatus_entry: { hEvent: 0x0000556c1d012d80 }
-    # 08:39:12.819069233 - cupcake - vpid: 3836181, vtid: 3836194 - lttng_ust_ze:zeEventHostSignal_entry: { hEvent: 0x00007f229802e9a0 }
+
     def parseCommand(self, line) -> tuple[str, Command]:
         if "zeEventCreate_exit" in line:
             # extract event from phEvent_val: 0x0000556c1d00e480
@@ -110,27 +104,41 @@ def traverse_event_nodes(event_nodes):
             output.append(node)
     return output
 
+class CircularDependencyError(Exception):
+    def __init__(self, message="Circular dependency detected"):
+        super().__init__(message)
+
 def traverse_event_nodes_non_recursive(event_nodes):
     output = []
     stack = list(event_nodes)  # Use a list as a stack for nodes to be processed
+    visited = set()  # Track visited nodes to detect cycles
 
     while stack:
         node = stack.pop()  # Get the last node from the stack
-        if node.command != Command.SIGNAL and node not in output:
-            output.append(node)
+        if node in visited:
+            # Detected a cycle, raise an exception
+            raise CircularDependencyError(f"Circular dependency detected at node with ptr {node.ptr}")
+        visited.add(node)  # Mark node as visited
+
+        if node.command != Command.SIGNAL:
+            if node not in output:
+                output.append(node)
         else:
             # Temporarily store nodes to keep the original order after SIGNAL nodes
             temp_nodes = []
             for dependency in reversed(node.dependsOn):  # Reverse to maintain order when adding to stack
                 if dependency != "":
                     dep = NodeMap[dependency]
-                    # Instead of recursive call, add dependency nodes to the stack
-                    stack.extend(dep)
+                    # Check if dependency is not already visited to prevent infinite loop
+                    if dep[0] not in visited:
+                        # Instead of recursive call, add dependency nodes to the stack
+                        stack.extend(dep)
             # Add the current SIGNAL node after processing its dependencies
             if node not in output:
                 temp_nodes.append(node)
             # Extend the output with processed nodes in the correct order
             output.extend(reversed(temp_nodes))
+
     return output
 
 def event_reset_after_signal(ptr) -> bool:
@@ -160,15 +168,11 @@ def event_reset_after_signal(ptr) -> bool:
             return True
     return False
 
-def event_never_signaled(ptr) -> bool:
+def circular_dependency(ptr) -> bool:
     NodePtr = NodeMap[ptr]
     event_nodes = traverse_event_nodes(NodePtr)
-    # 1. Find the node where ptr is signalled (if it is)
-    # 2. If it is not signalled, return True
-    # 3. Make sure all other events are signalled
-    # 4. If they are, return False
-    # 5. If they are not, return True
-
+    # sort by timestamp
+    event_nodes.sort(key=lambda x: float(x.timestamp))
 
 
 if __name__ == "__main__":
@@ -180,23 +184,18 @@ if __name__ == "__main__":
     # ptr = sys.argv[1]
     # trace_file = sys.argv[2]
     # # read file
-    trace_file = "/Users/pvelesko/local/LevelZero-Trace-Analyzer/simple.trace"
+    trace_file = "/Users/pvelesko/local/LevelZero-Trace-Analyzer/circularDep.trace"
     with open(trace_file, 'r') as f:
         lines = f.readlines()
     
     NodeMap = generate_node_map(lines)
-    # print the NodeMap for EventD
-    for node in NodeMap["EventC"]:
-        print(f"NodeD: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
-
-
-    test = traverse_event_nodes_non_recursive(NodeMap["EventC"])
+    test = traverse_event_nodes_non_recursive(NodeMap["EventD"])
     test.reverse()
 
-    # sort by timestamp
-    test.sort(key=lambda x: float(x.timestamp))
-    for node in test:
-        print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
+    # # sort by timestamp
+    # test.sort(key=lambda x: float(x.timestamp))
+    # for node in test:
+    #     print(f"NodeC: {node.command} {node.ptr} {node.dependsOn} {node.timestamp} {node.threadId}")
 
-    reset_check = event_reset_after_signal("EventC")
+    # reset_check = event_reset_after_signal("EventC")
     pass
