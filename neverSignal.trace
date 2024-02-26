@@ -12,7 +12,7 @@
 08:18:04.11 - cupcake - vpid: 267004, vtid: 000000 - lttng_ust_hip:hipMalloc_exit: { hipResult: hipSuccess, ptr_val: 0xffffeaab54800000 }
 08:18:04.12 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_ze:zeEventHostSynchronize_entry: { hEvent: EventD, timeout: 18446744073709551615 }
 
-08:18:04.13 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventA }
-08:18:04.14 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventB }
-08:18:04.15 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventC }
-08:18:04.16 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:hipEventCreate_entry: { event: EventD }
+08:18:04.13 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:zeEventDestroy_entry: { event: EventA }
+08:18:04.14 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:zeEventDestroy_entry: { event: EventB }
+08:18:04.15 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:zeEventDestroy_entry: { event: EventC }
+08:18:04.16 - cupcake - vpid: 267004, vtid: 267004 - lttng_ust_hip:zeEventDestroy_entry: { event: EventD }
