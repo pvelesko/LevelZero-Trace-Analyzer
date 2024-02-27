@@ -161,7 +161,7 @@ def circular_dependency(ptr) -> bool:
     # sort by timestamp
     event_nodes.sort(key=lambda x: float(x.timestamp))
 
-def never_signalled(ptr) -> bool:
+def all_events_signalled(ptr) -> bool:
     NodePtr = NodeMap[ptr]
     event_nodes = traverse_event_nodes_non_recursive(NodePtr)
     # sort by timestamp
@@ -171,10 +171,21 @@ def never_signalled(ptr) -> bool:
     for node in event_nodes:
         unique_ptrs.add(node.ptr)
     
+    # # printout event_nodes
+    # print("Event Nodes:")
+    # for node in event_nodes:
+    #     print(f"{node.ptr} {node.command} {node.timestamp}")
+        
+
     # for every unique ptr, check if it is signalled
     for ptr in unique_ptrs:
-        if not any(node.command == Command.SIGNAL for node in NodeMap[ptr]):
-            return True
+        found_signal = False
+        for node in event_nodes:
+            if node.command == Command.SIGNAL:
+                found_signal = True
+                break
+            else:
+                return False
     return True
 
 if __name__ == "__main__":
@@ -191,5 +202,8 @@ if __name__ == "__main__":
     
     NodeMap = generate_node_map(lines)
     reset_check = event_reset_after_signal("EventD")
-    never_sigal = never_signalled("EventD")
+    print(f"EventD reset after signal: {reset_check}")
+
+    all_events_have_signal = all_events_signalled("EventD")
+    print(f"EventD never signalled: {not all_events_have_signal}")
     pass
