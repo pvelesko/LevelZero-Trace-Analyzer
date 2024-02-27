@@ -201,9 +201,9 @@ if __name__ == "__main__":
         lines = f.readlines()
     
     NodeMap = generate_node_map(lines)
-    reset_check = event_reset_after_signal("EventD")
-    print(f"EventD reset after signal: {reset_check}")
+    reset_check = event_reset_after_signal(ptr)
+    print(f"{ptr} reset after signal: {reset_check}")
 
-    all_events_have_signal = all_events_signalled("EventD")
-    print(f"EventD never signalled: {not all_events_have_signal}")
+    all_events_have_signal = all_events_signalled(ptr)
+    print(f"{ptr} never signalled: {not all_events_have_signal}")
     pass
