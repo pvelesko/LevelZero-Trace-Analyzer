@@ -23,7 +23,8 @@ class EventNode:
         self.timestamp = self.parseTimestamp(line)  
         self.threadId = self.parseThreadId(line)
         self.dependsOn = self.parseDependsOn(line)
-    
+    def __repr__(self):
+        return f"{self.ptr} {self.command} {self.timestamp} {self.threadId} {self.dependsOn}\ns{self.line}"
     # given a timestamp like 08:18:04.649921690, parse it into an float seconds.milliseconds
     def parseTimestamp(self, t_string):
         t_string = t_string.split(' ')[0]
@@ -48,7 +49,8 @@ class EventNode:
             return ptr, Command.RESET
         elif "zeEventQueryStatus_entry" in line:
             ptr = line.split("hEvent: ")[1].split(' ')[0]
-            return ptr, Command.QUERY 
+            # return ptr, Command.QUERY 
+            return None, None
         elif "hSignalEvent" in line:
             ptr = line.split("hSignalEvent: ")[1].split(' ')[0]
             # make sure the last char is , and drop it
@@ -104,7 +106,7 @@ def traverse_event_nodes_non_recursive(event_nodes):
         node = stack.pop()  # Get the last node from the stack
         if node in visited:
             # Detected a cycle, raise an exception
-            raise CircularDependencyError(f"Circular dependuency detected at node with ptr {node.ptr}")
+            raise CircularDependencyError(f"Circular dependuency detected at node \n{node}")
         visited.add(node)  # Mark node as visited
 
         if node.command != Command.SIGNAL:
@@ -129,10 +131,6 @@ def traverse_event_nodes_non_recursive(event_nodes):
     return output
 
 def event_reset_after_signal(ptr) -> bool:
-    NodePtr = NodeMap[ptr]
-    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
-    # sort by timestamp
-    event_nodes.sort(key=lambda x: float(x.timestamp))
     # if there is a reset between the first occurence of signal and the first occurernce of wait, return True
     # 1. find the first occurence of singnal
     # 2. find the first occurence of wait
@@ -152,40 +150,30 @@ def event_reset_after_signal(ptr) -> bool:
         return False
     for i in range(signal, wait):
         if event_nodes[i].command == Command.RESET:
+            print(f"Reset found between signal and wait: {event_nodes[i]}")
             return True
     return False
 
 def circular_dependency(ptr) -> bool:
-    NodePtr = NodeMap[ptr]
-    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
     # sort by timestamp
     event_nodes.sort(key=lambda x: float(x.timestamp))
 
 def all_events_signalled(ptr) -> bool:
-    NodePtr = NodeMap[ptr]
-    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
-    # sort by timestamp
-    event_nodes.sort(key=lambda x: float(x.timestamp))
     # extract all unique ptr from the event_nodes
     unique_ptrs = set()
     for node in event_nodes:
         unique_ptrs.add(node.ptr)
-    
-    # # printout event_nodes
-    # print("Event Nodes:")
-    # for node in event_nodes:
-    #     print(f"{node.ptr} {node.command} {node.timestamp}")
-        
 
     # for every unique ptr, check if it is signalled
     for ptr in unique_ptrs:
         found_signal = False
         for node in event_nodes:
-            if node.command == Command.SIGNAL:
+            if node.command == Command.SIGNAL and node.ptr == ptr:
                 found_signal = True
                 break
-            else:
-                return False
+        if not found_signal:
+            print(f"{ptr} was never signalled!")
+            return False
     return True
 
 if __name__ == "__main__":
@@ -200,7 +188,20 @@ if __name__ == "__main__":
     with open(trace_file, 'r') as f:
         lines = f.readlines()
     
+    print("Generating node map")
     NodeMap = generate_node_map(lines)
+    NodePtr = NodeMap[ptr]
+    print("Expanding event nodes")
+    event_nodes = traverse_event_nodes_non_recursive(NodePtr)
+    print("Sorting by timestamp")
+    event_nodes.sort(key=lambda x: float(x.timestamp))
+
+    # printout event_nodes
+    print("Event Nodes:")
+    for node in event_nodes:
+        print(f"{node.ptr} {node.command} {node.timestamp}")
+
+    print("\n\n")
     reset_check = event_reset_after_signal(ptr)
     print(f"{ptr} reset after signal: {reset_check}")
 
